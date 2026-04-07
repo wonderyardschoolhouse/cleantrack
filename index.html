@@ -482,12 +482,13 @@
               <div class="scan-line"></div>
             </div>
           </div>
-          <div class="scan-hint">Point at a room QR code</div>
+          <div class="scan-hint" id="scan-hint">Point at a room QR code</div>
+          <div id="scan-success-flash" style="display:none;position:absolute;inset:0;background:rgba(26,122,74,0.5);display:none;align-items:center;justify-content:center;font-size:48px;">✅</div>
         </div>
         <button id="scan-cancel-btn" class="btn btn-outline" onclick="cancelScan()" style="display:block">✕ Cancel</button>
       </div>
 
-      <div id="checkin-form">
+      <div id="checkin-form" style="display:none">
         <div class="card card-body" style="margin-bottom:12px">
           <div class="success-badge">✅ QR Scanned</div>
           <div class="field">
@@ -775,7 +776,10 @@ function tick() {
   if (code && code.data) {
     clearInterval(scanLoop);
     scanLoop = null;
-    handleQRCode(code.data);
+    // Brief green flash so user knows scan succeeded
+    var flash = document.getElementById('scan-success-flash');
+    if (flash) { flash.style.display = 'flex'; }
+    setTimeout(function() { handleQRCode(code.data); }, 400);
   }
 }
 
@@ -783,15 +787,15 @@ function handleQRCode(raw) {
   stopCamera();
   try {
     const obj = JSON.parse(raw);
-    if (obj.system !== 'janitorial' || !obj.room) {
+    if (!obj || obj.system !== 'janitorial' || !obj.room) {
       toast('Invalid QR — please scan a room QR code', 'error');
-      setTimeout(() => resetCheckin(), 1500);
+      setTimeout(function() { resetCheckin(); }, 1500);
       return;
     }
     showCheckinForm(obj.room);
-  } catch {
+  } catch(e) {
     toast('Invalid QR — please scan a room QR code', 'error');
-    setTimeout(() => resetCheckin(), 1500);
+    setTimeout(function() { resetCheckin(); }, 1500);
   }
 }
 
@@ -898,7 +902,7 @@ async function retryFailed() {
     try {
       await gasRequest({ method: 'POST', body: r });
       succeeded++;
-    } catch { remaining.push(r); }
+    } catch(e) { remaining.push(r); }
   }
   failedCheckins = remaining;
   localStorage.setItem('failed_checkins', JSON.stringify(failedCheckins));
