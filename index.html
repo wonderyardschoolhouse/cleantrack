@@ -1,0 +1,1228 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>CleanTrack — Janitorial System</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jsQR/1.4.0/jsQR.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
+<style>
+  :root {
+    --primary: #0d6e4f;
+    --primary-light: #e8f5f0;
+    --primary-dark: #094d37;
+    --accent: #f0a500;
+    --danger: #c0392b;
+    --danger-light: #fdecea;
+    --success: #1a7a4a;
+    --success-light: #e6f4ed;
+    --text: #1a1a1a;
+    --text-muted: #6b7280;
+    --border: #e2e8f0;
+    --bg: #f8faf9;
+    --card: #ffffff;
+    --tab-h: 64px;
+    --radius: 12px;
+    --shadow: 0 2px 12px rgba(0,0,0,0.08);
+  }
+
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  html, body {
+    height: 100%;
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    -webkit-font-smoothing: antialiased;
+    overscroll-behavior: none;
+  }
+
+  /* ── LAYOUT ─────────────────────────────────────── */
+  #app {
+    display: flex;
+    flex-direction: column;
+    height: 100dvh;
+    max-width: 480px;
+    margin: 0 auto;
+    position: relative;
+  }
+
+  #main-content {
+    flex: 1;
+    overflow-y: auto;
+    -webkit-overflow-scrolling: touch;
+    padding-bottom: calc(var(--tab-h) + 16px);
+  }
+
+  /* ── HEADER ─────────────────────────────────────── */
+  .page-header {
+    position: sticky;
+    top: 0;
+    z-index: 10;
+    background: var(--card);
+    border-bottom: 1px solid var(--border);
+    padding: 14px 20px 12px;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+  }
+  .page-header .logo-mark {
+    width: 32px; height: 32px;
+    background: var(--primary);
+    border-radius: 8px;
+    display: flex; align-items: center; justify-content: center;
+    flex-shrink: 0;
+  }
+  .page-header .logo-mark svg { width: 18px; height: 18px; fill: white; }
+  .page-header h1 { font-size: 17px; font-weight: 700; letter-spacing: -0.3px; }
+  .page-header .subtitle { font-size: 11px; color: var(--text-muted); font-weight: 500; }
+
+  /* ── TAB BAR ────────────────────────────────────── */
+  #tab-bar {
+    position: fixed;
+    bottom: 0; left: 50%;
+    transform: translateX(-50%);
+    width: 100%; max-width: 480px;
+    height: var(--tab-h);
+    background: var(--card);
+    border-top: 1px solid var(--border);
+    display: flex;
+    z-index: 100;
+    padding-bottom: env(safe-area-inset-bottom);
+  }
+  .tab-btn {
+    flex: 1;
+    display: flex; flex-direction: column;
+    align-items: center; justify-content: center;
+    gap: 4px;
+    background: none; border: none; cursor: pointer;
+    color: var(--text-muted);
+    font-size: 10px; font-weight: 600; text-transform: uppercase;
+    letter-spacing: 0.5px;
+    transition: color 0.15s;
+    -webkit-tap-highlight-color: transparent;
+    position: relative;
+  }
+  .tab-btn .tab-icon { font-size: 20px; line-height: 1; }
+  .tab-btn::before {
+    content: '';
+    position: absolute; top: 0; left: 50%; transform: translateX(-50%);
+    width: 0; height: 2px;
+    background: var(--primary);
+    border-radius: 0 0 2px 2px;
+    transition: width 0.2s;
+  }
+  .tab-btn.active { color: var(--primary); }
+  .tab-btn.active::before { width: 28px; }
+
+  /* ── PANELS ─────────────────────────────────────── */
+  .panel { display: none; padding: 20px; }
+  .panel.active { display: block; }
+
+  /* ── CARDS ──────────────────────────────────────── */
+  .card {
+    background: var(--card);
+    border-radius: var(--radius);
+    box-shadow: var(--shadow);
+    border: 1px solid var(--border);
+  }
+  .card-body { padding: 20px; }
+  .card + .card { margin-top: 12px; }
+
+  /* ── BUTTONS ────────────────────────────────────── */
+  .btn {
+    display: inline-flex; align-items: center; justify-content: center;
+    gap: 6px;
+    min-height: 48px; padding: 0 20px;
+    border-radius: 10px;
+    font-size: 15px; font-weight: 600;
+    border: none; cursor: pointer;
+    transition: transform 0.1s, opacity 0.15s;
+    -webkit-tap-highlight-color: transparent;
+    white-space: nowrap;
+  }
+  .btn:active { transform: scale(0.97); }
+  .btn:disabled { opacity: 0.45; pointer-events: none; }
+  .btn-primary { background: var(--primary); color: white; width: 100%; }
+  .btn-primary:hover { background: var(--primary-dark); }
+  .btn-secondary { background: var(--primary-light); color: var(--primary); }
+  .btn-danger { background: var(--danger-light); color: var(--danger); }
+  .btn-outline { background: transparent; color: var(--primary); border: 1.5px solid var(--primary); }
+  .btn-sm { min-height: 36px; padding: 0 14px; font-size: 13px; border-radius: 8px; }
+  .btn-icon {
+    width: 36px; height: 36px; padding: 0;
+    border-radius: 8px; border: none;
+    display: inline-flex; align-items: center; justify-content: center;
+    cursor: pointer; font-size: 16px;
+    -webkit-tap-highlight-color: transparent;
+    background: var(--danger-light); color: var(--danger);
+    transition: transform 0.1s;
+  }
+  .btn-icon:active { transform: scale(0.93); }
+
+  /* ── FORMS ──────────────────────────────────────── */
+  .field { margin-bottom: 16px; }
+  .field label {
+    display: block; font-size: 12px; font-weight: 700;
+    color: var(--text-muted); text-transform: uppercase;
+    letter-spacing: 0.6px; margin-bottom: 6px;
+  }
+  input, select, textarea {
+    width: 100%; padding: 12px 14px;
+    border: 1.5px solid var(--border);
+    border-radius: 10px; font-size: 15px;
+    background: white; color: var(--text);
+    outline: none; transition: border-color 0.15s;
+    font-family: inherit;
+    appearance: none; -webkit-appearance: none;
+  }
+  input:focus, select:focus { border-color: var(--primary); }
+  input[readonly] { background: var(--bg); color: var(--text-muted); }
+  select { background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='8' viewBox='0 0 12 8'%3E%3Cpath d='M1 1l5 5 5-5' stroke='%236b7280' stroke-width='1.5' fill='none' stroke-linecap='round'/%3E%3C/svg%3E"); background-repeat: no-repeat; background-position: right 14px center; padding-right: 36px; }
+
+  .input-row { display: flex; gap: 8px; }
+  .input-row input { flex: 1; }
+
+  /* ── SECTION TITLE ──────────────────────────────── */
+  .section-title {
+    font-size: 11px; font-weight: 800; text-transform: uppercase;
+    letter-spacing: 0.8px; color: var(--text-muted);
+    margin-bottom: 10px; margin-top: 4px;
+  }
+
+  /* ── CHECK-IN PANEL ─────────────────────────────── */
+  #checkin-idle {
+    display: flex; flex-direction: column;
+    align-items: center; justify-content: center;
+    padding: 48px 20px;
+    text-align: center;
+  }
+  .checkin-hero {
+    width: 100px; height: 100px;
+    background: var(--primary-light);
+    border-radius: 50%;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 44px; margin-bottom: 20px;
+  }
+  #checkin-idle h2 { font-size: 22px; font-weight: 800; margin-bottom: 8px; }
+  #checkin-idle p { color: var(--text-muted); font-size: 14px; max-width: 260px; line-height: 1.5; margin-bottom: 28px; }
+
+  /* ── SCANNER ────────────────────────────────────── */
+  #scanner-wrap {
+    display: none;
+    position: relative;
+    background: #000;
+    border-radius: var(--radius);
+    overflow: hidden;
+    aspect-ratio: 1;
+    margin-bottom: 16px;
+  }
+  #scanner-video { width: 100%; height: 100%; object-fit: cover; display: block; }
+  .scan-overlay {
+    position: absolute; inset: 0;
+    display: flex; align-items: center; justify-content: center;
+    pointer-events: none;
+  }
+  .scan-box {
+    width: 180px; height: 180px;
+    border: 2px solid rgba(255,255,255,0.6);
+    border-radius: 12px;
+    position: relative;
+  }
+  .scan-box::before, .scan-box::after,
+  .scan-box span::before, .scan-box span::after {
+    content: ''; position: absolute;
+    width: 24px; height: 24px;
+    border-color: white; border-style: solid;
+  }
+  .scan-box::before { top: -2px; left: -2px; border-width: 3px 0 0 3px; border-radius: 4px 0 0 0; }
+  .scan-box::after { top: -2px; right: -2px; border-width: 3px 3px 0 0; border-radius: 0 4px 0 0; }
+  .scan-box span::before { bottom: -2px; left: -2px; border-width: 0 0 3px 3px; border-radius: 0 0 0 4px; }
+  .scan-box span::after { bottom: -2px; right: -2px; border-width: 0 3px 3px 0; border-radius: 0 0 4px 0; }
+  .scan-line {
+    position: absolute; left: 8px; right: 8px; height: 2px;
+    background: linear-gradient(90deg, transparent, var(--accent), transparent);
+    animation: scanLine 2s linear infinite;
+    top: 0;
+  }
+  @keyframes scanLine { 0% { top: 8px; } 50% { top: calc(100% - 10px); } 100% { top: 8px; } }
+
+  .scan-hint {
+    position: absolute; bottom: 16px; left: 0; right: 0;
+    text-align: center; color: rgba(255,255,255,0.85);
+    font-size: 13px; font-weight: 500;
+  }
+  #scan-cancel-btn {
+    display: none;
+    width: 100%; margin-top: 8px;
+  }
+
+  /* ── CHECKIN FORM ───────────────────────────────── */
+  #checkin-form { display: none; }
+  .success-badge {
+    display: inline-flex; align-items: center; gap: 6px;
+    background: var(--success-light); color: var(--success);
+    padding: 6px 12px; border-radius: 20px;
+    font-size: 13px; font-weight: 600; margin-bottom: 12px;
+  }
+
+  /* ── RETRY QUEUE ────────────────────────────────── */
+  #retry-banner {
+    display: none;
+    background: #fff3e0; border: 1px solid #f0a500;
+    border-radius: 10px; padding: 12px 16px;
+    margin-bottom: 16px;
+    font-size: 13px; color: #854d0e;
+    display: none; align-items: center; gap: 10px;
+  }
+  #retry-banner.visible { display: flex; }
+  #retry-banner .retry-msg { flex: 1; }
+
+  /* ── LOG PANEL ──────────────────────────────────── */
+  .filter-row { display: flex; gap: 8px; margin-bottom: 12px; }
+  .filter-row select, .filter-row input[type="date"] { flex: 1; font-size: 13px; padding: 10px 12px; }
+
+  .log-stats {
+    display: flex; justify-content: space-between; align-items: center;
+    margin-bottom: 12px;
+  }
+  .log-stats span { font-size: 12px; color: var(--text-muted); font-weight: 600; }
+
+  .log-card {
+    background: var(--card);
+    border-radius: var(--radius);
+    border: 1px solid var(--border);
+    padding: 14px 16px;
+    margin-bottom: 8px;
+    display: flex; align-items: flex-start; gap: 12px;
+  }
+  .log-icon {
+    width: 36px; height: 36px; flex-shrink: 0;
+    background: var(--primary-light);
+    border-radius: 8px;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 17px;
+  }
+  .log-info { flex: 1; min-width: 0; }
+  .log-room { font-size: 14px; font-weight: 700; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .log-cleaner { font-size: 12px; color: var(--text-muted); margin-top: 2px; }
+  .log-time { text-align: right; flex-shrink: 0; }
+  .log-time .time { font-size: 13px; font-weight: 700; color: var(--primary); }
+  .log-time .date { font-size: 11px; color: var(--text-muted); margin-top: 2px; }
+  .log-empty { text-align: center; padding: 48px 20px; color: var(--text-muted); }
+  .log-empty .empty-icon { font-size: 40px; margin-bottom: 12px; }
+
+  /* ── SETUP PANEL ────────────────────────────────── */
+  #pin-gate {
+    display: flex; flex-direction: column;
+    align-items: center; padding: 32px 20px;
+    max-width: 320px; margin: 0 auto;
+  }
+  .pin-title { font-size: 18px; font-weight: 800; margin-bottom: 6px; }
+  .pin-sub { font-size: 13px; color: var(--text-muted); margin-bottom: 28px; text-align: center; }
+  .pin-dots {
+    display: flex; gap: 12px; margin-bottom: 32px;
+  }
+  .pin-dot {
+    width: 16px; height: 16px; border-radius: 50%;
+    border: 2px solid var(--border);
+    background: transparent;
+    transition: background 0.15s, border-color 0.15s;
+  }
+  .pin-dot.filled { background: var(--primary); border-color: var(--primary); }
+
+  .pin-grid {
+    display: grid; grid-template-columns: repeat(3, 1fr);
+    gap: 10px; width: 100%;
+  }
+  .pin-key {
+    height: 64px; border-radius: 12px;
+    background: var(--card); border: 1.5px solid var(--border);
+    font-size: 22px; font-weight: 700;
+    cursor: pointer;
+    transition: background 0.1s, transform 0.1s;
+    -webkit-tap-highlight-color: transparent;
+  }
+  .pin-key:active { background: var(--primary-light); transform: scale(0.95); }
+  .pin-key.empty { background: transparent; border-color: transparent; cursor: default; }
+  .pin-key.del { font-size: 17px; background: var(--bg); }
+  .pin-error { color: var(--danger); font-size: 13px; font-weight: 600; margin-top: 12px; min-height: 20px; }
+  @keyframes shake {
+    0%,100%{transform:translateX(0)} 20%,60%{transform:translateX(-8px)} 40%,80%{transform:translateX(8px)}
+  }
+  .shake { animation: shake 0.35s ease; }
+
+  #setup-content { display: none; }
+  .setup-topbar {
+    display: flex; align-items: center; justify-content: space-between;
+    margin-bottom: 16px;
+  }
+  .setup-topbar h2 { font-size: 18px; font-weight: 800; }
+
+  .list-item {
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 10px 0;
+    border-bottom: 1px solid var(--border);
+  }
+  .list-item:last-child { border-bottom: none; }
+  .list-item-name { font-size: 14px; font-weight: 600; flex: 1; }
+  .list-item-actions { display: flex; align-items: center; gap: 8px; }
+
+  .room-qr-preview {
+    margin-top: 8px;
+    display: flex; align-items: center; gap: 12px;
+  }
+  .qr-thumb { width: 56px; height: 56px; border: 1px solid var(--border); border-radius: 6px; overflow: hidden; display: flex; align-items: center; justify-content: center; }
+  .qr-thumb canvas, .qr-thumb img { width: 52px !important; height: 52px !important; }
+
+  .gas-status { display: flex; align-items: center; gap: 6px; font-size: 12px; font-weight: 600; margin-top: 8px; }
+  .status-dot { width: 8px; height: 8px; border-radius: 50%; background: var(--text-muted); }
+  .status-dot.ok { background: var(--success); }
+  .status-dot.err { background: var(--danger); }
+
+  /* ── SPINNER ────────────────────────────────────── */
+  .spinner {
+    width: 20px; height: 20px;
+    border: 2.5px solid rgba(255,255,255,0.3);
+    border-top-color: white; border-radius: 50%;
+    animation: spin 0.7s linear infinite; flex-shrink: 0;
+  }
+  .spinner.dark { border-color: rgba(0,0,0,0.1); border-top-color: var(--primary); }
+  @keyframes spin { to { transform: rotate(360deg); } }
+
+  .loading-row { display: flex; align-items: center; justify-content: center; gap: 10px; padding: 40px; color: var(--text-muted); font-size: 14px; }
+
+  /* ── TOAST ──────────────────────────────────────── */
+  #toast-container {
+    position: fixed; top: 16px; left: 50%; transform: translateX(-50%);
+    z-index: 9999; display: flex; flex-direction: column;
+    align-items: center; gap: 8px; pointer-events: none;
+    width: calc(100% - 32px); max-width: 420px;
+  }
+  .toast {
+    padding: 12px 18px; border-radius: 10px;
+    font-size: 14px; font-weight: 600;
+    box-shadow: 0 4px 20px rgba(0,0,0,0.15);
+    animation: toastIn 0.25s ease, toastOut 0.3s ease 2.7s forwards;
+    width: 100%; text-align: center;
+  }
+  .toast.success { background: var(--success); color: white; }
+  .toast.error { background: var(--danger); color: white; }
+  @keyframes toastIn { from { opacity: 0; transform: translateY(-8px) scale(0.96); } to { opacity: 1; transform: none; } }
+  @keyframes toastOut { to { opacity: 0; transform: translateY(-8px) scale(0.96); } }
+
+  /* ── SKELETON ───────────────────────────────────── */
+  .skeleton { background: linear-gradient(90deg, var(--border) 25%, #f0f0f0 50%, var(--border) 75%); background-size: 200% 100%; animation: shimmer 1.4s infinite; border-radius: 6px; }
+  @keyframes shimmer { from { background-position: 200% 0; } to { background-position: -200% 0; } }
+
+  /* ── PRINT ──────────────────────────────────────── */
+  @media print {
+    body * { visibility: hidden !important; }
+    #print-area, #print-area * { visibility: visible !important; }
+    #print-area { position: fixed; inset: 0; display: flex; align-items: center; justify-content: center; }
+  }
+  #print-area { display: none; }
+
+  /* ── DIVIDER ────────────────────────────────────── */
+  .divider { height: 1px; background: var(--border); margin: 16px 0; }
+
+  /* ── CAMERA ERROR ────────────────────────────────── */
+  #camera-error {
+    display: none;
+    background: var(--danger-light);
+    border: 1px solid #f5c6cb;
+    border-radius: 10px; padding: 16px;
+    font-size: 13px; color: var(--danger); line-height: 1.5;
+    margin-bottom: 12px;
+  }
+</style>
+</head>
+<body>
+
+<div id="app">
+  <!-- HEADER -->
+  <div class="page-header">
+    <div class="logo-mark">
+      <svg viewBox="0 0 24 24"><path d="M19 11H7.83l4.88-4.88c.39-.39.39-1.03 0-1.42-.39-.39-1.02-.39-1.41 0l-6.59 6.59c-.39.39-.39 1.02 0 1.41l6.59 6.59c.39.39 1.02.39 1.41 0 .39-.39.39-1.02 0-1.41L7.83 13H19c.55 0 1-.45 1-1s-.45-1-1-1z"/><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-1 14H9V8h2v8zm4 0h-2V8h2v8z" opacity="0"/></svg>
+    </div>
+    <div>
+      <h1>CleanTrack</h1>
+      <div class="subtitle" id="header-subtitle">Janitorial System</div>
+    </div>
+  </div>
+
+  <!-- MAIN CONTENT -->
+  <div id="main-content">
+
+    <!-- ── CHECK-IN PANEL ── -->
+    <div id="panel-checkin" class="panel active">
+      <div id="retry-banner">
+        <span class="retry-msg">📦 1 check-in failed to sync.</span>
+        <button class="btn btn-sm btn-secondary" onclick="retryFailed()">Retry</button>
+      </div>
+      <div id="checkin-idle">
+        <div class="checkin-hero">🧹</div>
+        <h2>Ready to Check In</h2>
+        <p>Tap the button below to scan a room QR code and record your clean.</p>
+        <button class="btn btn-primary" onclick="startScan()" style="max-width:240px">
+          <span>📷</span> Start Check-In
+        </button>
+      </div>
+
+      <div id="scanner-section" style="display:none">
+        <div id="camera-error">
+          <strong>📵 Camera access denied.</strong><br>
+          To enable: tap the <strong>lock/settings icon</strong> in your browser address bar → Site settings → Camera → Allow. Then refresh the page.
+        </div>
+        <div id="scanner-wrap">
+          <video id="scanner-video" autoplay playsinline muted></video>
+          <div class="scan-overlay">
+            <div class="scan-box">
+              <span></span>
+              <div class="scan-line"></div>
+            </div>
+          </div>
+          <div class="scan-hint">Point at a room QR code</div>
+        </div>
+        <button id="scan-cancel-btn" class="btn btn-outline" onclick="cancelScan()" style="display:block">✕ Cancel</button>
+      </div>
+
+      <div id="checkin-form">
+        <div class="card card-body" style="margin-bottom:12px">
+          <div class="success-badge">✅ QR Scanned</div>
+          <div class="field">
+            <label>Room</label>
+            <input id="ci-room" type="text" readonly>
+          </div>
+          <div class="field">
+            <label>Your Name</label>
+            <select id="ci-cleaner-select"></select>
+            <input id="ci-cleaner-text" type="text" placeholder="Enter your name" style="display:none; margin-top:8px">
+          </div>
+          <button class="btn btn-primary" onclick="submitCheckin()" id="submit-btn">
+            Submit Check-In
+          </button>
+          <button class="btn btn-outline" onclick="resetCheckin()" style="margin-top:8px">↩ Scan Again</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- ── LOG PANEL ── -->
+    <div id="panel-log" class="panel">
+      <div class="filter-row">
+        <select id="log-filter-room" onchange="applyFilters()">
+          <option value="">All Rooms</option>
+        </select>
+        <input type="date" id="log-filter-date" onchange="applyFilters()">
+      </div>
+      <div class="log-stats">
+        <span id="log-count">Loading…</span>
+        <button class="btn btn-sm btn-secondary" onclick="exportCSV()">⬇ Export CSV</button>
+      </div>
+      <div id="log-list"></div>
+    </div>
+
+    <!-- ── SETUP PANEL ── -->
+    <div id="panel-setup" class="panel">
+
+      <!-- PIN GATE -->
+      <div id="pin-gate">
+        <div class="pin-title">🔒 Admin Setup</div>
+        <div class="pin-sub">Enter your 4-digit PIN to continue.</div>
+        <div class="pin-dots" id="pin-dots">
+          <div class="pin-dot" id="dot-0"></div>
+          <div class="pin-dot" id="dot-1"></div>
+          <div class="pin-dot" id="dot-2"></div>
+          <div class="pin-dot" id="dot-3"></div>
+        </div>
+        <div class="pin-grid" id="pin-grid">
+          <button class="pin-key" onclick="pinPress('1')">1</button>
+          <button class="pin-key" onclick="pinPress('2')">2</button>
+          <button class="pin-key" onclick="pinPress('3')">3</button>
+          <button class="pin-key" onclick="pinPress('4')">4</button>
+          <button class="pin-key" onclick="pinPress('5')">5</button>
+          <button class="pin-key" onclick="pinPress('6')">6</button>
+          <button class="pin-key" onclick="pinPress('7')">7</button>
+          <button class="pin-key" onclick="pinPress('8')">8</button>
+          <button class="pin-key" onclick="pinPress('9')">9</button>
+          <button class="pin-key empty"></button>
+          <button class="pin-key" onclick="pinPress('0')">0</button>
+          <button class="pin-key del" onclick="pinDel()">⌫</button>
+        </div>
+        <div class="pin-error" id="pin-error"></div>
+      </div>
+
+      <!-- SETUP CONTENT (hidden until unlocked) -->
+      <div id="setup-content">
+        <div class="setup-topbar">
+          <h2>⚙️ Setup</h2>
+          <button class="btn btn-sm btn-danger" onclick="lockSetup()">🔒 Lock</button>
+        </div>
+
+        <!-- GAS URL -->
+        <div class="section-title">Connection</div>
+        <div class="card card-body" style="margin-bottom:16px">
+          <div class="field" style="margin-bottom:10px">
+            <label>Google Apps Script URL</label>
+            <input type="url" id="gas-url-input" placeholder="https://script.google.com/macros/s/…/exec">
+          </div>
+          <div class="gas-status" id="gas-status">
+            <div class="status-dot" id="gas-dot"></div>
+            <span id="gas-status-text">Not tested</span>
+          </div>
+          <button class="btn btn-secondary" style="margin-top:10px" onclick="saveGasUrl()">Save & Test Connection</button>
+        </div>
+
+        <!-- ROOMS -->
+        <div class="section-title">Rooms</div>
+        <div class="card card-body" style="margin-bottom:16px" id="rooms-card">
+          <div id="rooms-list"></div>
+          <div class="divider"></div>
+          <div class="input-row">
+            <input type="text" id="new-room-input" placeholder="Room name e.g. Toilet Block A" onkeydown="if(event.key==='Enter') addRoom()">
+            <button class="btn btn-secondary" onclick="addRoom()" style="min-width:64px">Add</button>
+          </div>
+        </div>
+
+        <!-- CLEANERS -->
+        <div class="section-title">Cleaners</div>
+        <div class="card card-body" style="margin-bottom:16px">
+          <div id="cleaners-list"></div>
+          <div class="divider"></div>
+          <div class="input-row">
+            <input type="text" id="new-cleaner-input" placeholder="Cleaner name" onkeydown="if(event.key==='Enter') addCleaner()">
+            <button class="btn btn-secondary" onclick="addCleaner()" style="min-width:64px">Add</button>
+          </div>
+        </div>
+
+        <!-- CHANGE PIN -->
+        <div class="section-title">Security</div>
+        <div class="card card-body" style="margin-bottom:32px">
+          <div class="field">
+            <label>New PIN (4 digits)</label>
+            <input type="number" id="new-pin" placeholder="New PIN" maxlength="4" oninput="this.value=this.value.slice(0,4)">
+          </div>
+          <div class="field">
+            <label>Confirm PIN</label>
+            <input type="number" id="confirm-pin" placeholder="Confirm PIN" maxlength="4" oninput="this.value=this.value.slice(0,4)">
+          </div>
+          <button class="btn btn-secondary" onclick="changePin()">Update PIN</button>
+        </div>
+      </div>
+    </div>
+
+  </div><!-- /main-content -->
+
+  <!-- BOTTOM TAB BAR -->
+  <div id="tab-bar">
+    <button class="tab-btn active" id="tab-checkin" onclick="switchTab('checkin')">
+      <span class="tab-icon">✅</span>
+      <span>Check In</span>
+    </button>
+    <button class="tab-btn" id="tab-log" onclick="switchTab('log')">
+      <span class="tab-icon">📋</span>
+      <span>Log</span>
+    </button>
+    <button class="tab-btn" id="tab-setup" onclick="switchTab('setup')">
+      <span class="tab-icon">⚙️</span>
+      <span>Setup</span>
+    </button>
+  </div>
+</div><!-- /app -->
+
+<!-- TOAST CONTAINER -->
+<div id="toast-container"></div>
+
+<!-- PRINT AREA -->
+<div id="print-area">
+  <div id="print-qr-content" style="text-align:center; font-family:system-ui,sans-serif; padding:40px;">
+    <div id="print-qr-canvas" style="display:inline-block; margin-bottom:20px;"></div>
+    <div id="print-room-name" style="font-size:28px; font-weight:800; margin-bottom:8px;"></div>
+    <div style="font-size:14px; color:#666;">CleanTrack Janitorial System</div>
+  </div>
+</div>
+
+<script>
+// ═══════════════════════════════════════════════════════════
+// STATE
+// ═══════════════════════════════════════════════════════════
+let GAS_URL = localStorage.getItem('gas_url') || '';
+let settings = { rooms: [], cleaners: [], pin: '1234' };
+let allLogs = [];
+let filteredLogs = [];
+let videoStream = null;
+let scanLoop = null;
+let pinBuffer = '';
+let setupUnlocked = false;
+let failedCheckins = JSON.parse(localStorage.getItem('failed_checkins') || '[]');
+
+// ═══════════════════════════════════════════════════════════
+// UTILS
+// ═══════════════════════════════════════════════════════════
+function toast(msg, type = 'success') {
+  const el = document.createElement('div');
+  el.className = `toast ${type}`;
+  el.textContent = msg;
+  document.getElementById('toast-container').appendChild(el);
+  setTimeout(() => el.remove(), 3100);
+}
+
+function gasRequest(params) {
+  if (!GAS_URL) return Promise.reject(new Error('GAS URL not set. Please configure in Setup.'));
+  if (params.method === 'GET' || !params.method) {
+    const qs = new URLSearchParams(params.query || {}).toString();
+    return fetch(`${GAS_URL}${qs ? '?' + qs : ''}`, { method: 'GET', mode: 'cors' })
+      .then(r => r.json());
+  } else {
+    return fetch(GAS_URL, {
+      method: 'POST',
+      mode: 'cors',
+      headers: { 'Content-Type': 'text/plain' },
+      body: JSON.stringify(params.body)
+    }).then(r => r.json());
+  }
+}
+
+function pad2(n) { return String(n).padStart(2, '0'); }
+function todayStr() {
+  const d = new Date();
+  return `${d.getFullYear()}-${pad2(d.getMonth()+1)}-${pad2(d.getDate())}`;
+}
+function nowTime() {
+  const d = new Date();
+  return `${pad2(d.getHours())}:${pad2(d.getMinutes())}`;
+}
+
+// ═══════════════════════════════════════════════════════════
+// TAB NAVIGATION
+// ═══════════════════════════════════════════════════════════
+function switchTab(name) {
+  document.querySelectorAll('.panel').forEach(p => p.classList.remove('active'));
+  document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+  document.getElementById('panel-' + name).classList.add('active');
+  document.getElementById('tab-' + name).classList.add('active');
+
+  if (name === 'log') loadLogs();
+  if (name === 'checkin' && videoStream) {/* keep running */}
+  if (name !== 'checkin') { /* cancel scan if navigating away */ }
+}
+
+// ═══════════════════════════════════════════════════════════
+// SETTINGS LOAD
+// ═══════════════════════════════════════════════════════════
+async function loadSettings() {
+  if (!GAS_URL) return;
+  try {
+    const data = await gasRequest({ method: 'GET', query: { action: 'getSettings' } });
+    if (data.rooms) settings.rooms = data.rooms;
+    if (data.cleaners) settings.cleaners = data.cleaners;
+    if (data.pin) settings.pin = data.pin;
+  } catch (e) {
+    console.warn('Could not load settings:', e);
+  }
+}
+
+// ═══════════════════════════════════════════════════════════
+// CHECK-IN: SCANNER
+// ═══════════════════════════════════════════════════════════
+async function startScan() {
+  document.getElementById('checkin-idle').style.display = 'none';
+  document.getElementById('scanner-section').style.display = 'block';
+  document.getElementById('scanner-wrap').style.display = 'block';
+  document.getElementById('scan-cancel-btn').style.display = 'block';
+  document.getElementById('camera-error').style.display = 'none';
+
+  try {
+    videoStream = await navigator.mediaDevices.getUserMedia({
+      video: { facingMode: 'environment', width: { ideal: 640 }, height: { ideal: 640 } }
+    });
+    const video = document.getElementById('scanner-video');
+    video.srcObject = videoStream;
+    video.play();
+    video.addEventListener('loadedmetadata', () => {
+      requestAnimationFrame(tick);
+    });
+  } catch (err) {
+    document.getElementById('scanner-wrap').style.display = 'none';
+    document.getElementById('camera-error').style.display = 'block';
+  }
+}
+
+function tick() {
+  const video = document.getElementById('scanner-video');
+  if (!videoStream || video.readyState < 2) { requestAnimationFrame(tick); return; }
+  if (!document.getElementById('scanner-section').style.display || document.getElementById('scanner-section').style.display === 'none') return;
+
+  const canvas = document.createElement('canvas');
+  canvas.width = video.videoWidth;
+  canvas.height = video.videoHeight;
+  const ctx = canvas.getContext('2d');
+  ctx.drawImage(video, 0, 0);
+  const imgData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+  const code = jsQR(imgData.data, imgData.width, imgData.height, { inversionAttempts: 'dontInvert' });
+
+  if (code) {
+    handleQRCode(code.data);
+    return;
+  }
+  requestAnimationFrame(tick);
+}
+
+function handleQRCode(raw) {
+  stopCamera();
+  try {
+    const obj = JSON.parse(raw);
+    if (obj.system !== 'janitorial' || !obj.room) {
+      toast('Invalid QR — please scan a room QR code', 'error');
+      setTimeout(() => resetCheckin(), 1500);
+      return;
+    }
+    showCheckinForm(obj.room);
+  } catch {
+    toast('Invalid QR — please scan a room QR code', 'error');
+    setTimeout(() => resetCheckin(), 1500);
+  }
+}
+
+function stopCamera() {
+  if (videoStream) {
+    videoStream.getTracks().forEach(t => t.stop());
+    videoStream = null;
+  }
+}
+
+function cancelScan() {
+  stopCamera();
+  resetCheckin();
+}
+
+function showCheckinForm(room) {
+  document.getElementById('scanner-section').style.display = 'none';
+  document.getElementById('ci-room').value = room;
+
+  const sel = document.getElementById('ci-cleaner-select');
+  const txt = document.getElementById('ci-cleaner-text');
+  sel.innerHTML = '';
+  if (settings.cleaners.length > 0) {
+    settings.cleaners.forEach(c => {
+      const o = document.createElement('option');
+      o.value = c; o.textContent = c;
+      sel.appendChild(o);
+    });
+    sel.style.display = 'block';
+    txt.style.display = 'none';
+  } else {
+    sel.style.display = 'none';
+    txt.style.display = 'block';
+  }
+
+  document.getElementById('checkin-form').style.display = 'block';
+}
+
+function resetCheckin() {
+  stopCamera();
+  document.getElementById('checkin-idle').style.display = 'flex';
+  document.getElementById('scanner-section').style.display = 'none';
+  document.getElementById('checkin-form').style.display = 'none';
+  document.getElementById('ci-room').value = '';
+}
+
+// ═══════════════════════════════════════════════════════════
+// CHECK-IN: SUBMIT
+// ═══════════════════════════════════════════════════════════
+async function submitCheckin() {
+  const room = document.getElementById('ci-room').value;
+  const sel = document.getElementById('ci-cleaner-select');
+  const txt = document.getElementById('ci-cleaner-text');
+  const cleanerName = sel.style.display !== 'none' ? sel.value : txt.value.trim();
+
+  if (!cleanerName) { toast('Please enter your name', 'error'); return; }
+
+  const now = new Date();
+  const record = {
+    action: 'logCheckin',
+    date: todayStr(),
+    time: nowTime(),
+    room,
+    cleaner_name: cleanerName,
+    timestamp: now.getTime()
+  };
+
+  const btn = document.getElementById('submit-btn');
+  btn.disabled = true;
+  btn.innerHTML = '<div class="spinner"></div> Submitting…';
+
+  try {
+    await gasRequest({ method: 'POST', body: record });
+    toast('✅ Check-in recorded!', 'success');
+    resetCheckin();
+  } catch (e) {
+    // Save to retry queue
+    failedCheckins.push(record);
+    localStorage.setItem('failed_checkins', JSON.stringify(failedCheckins));
+    updateRetryBanner();
+    toast('Network error — saved locally. Tap Retry when online.', 'error');
+    resetCheckin();
+  } finally {
+    btn.disabled = false;
+    btn.textContent = 'Submit Check-In';
+  }
+}
+
+function updateRetryBanner() {
+  const banner = document.getElementById('retry-banner');
+  if (failedCheckins.length > 0) {
+    banner.classList.add('visible');
+    banner.querySelector('.retry-msg').textContent = `📦 ${failedCheckins.length} check-in(s) failed to sync.`;
+  } else {
+    banner.classList.remove('visible');
+  }
+}
+
+async function retryFailed() {
+  if (!failedCheckins.length) return;
+  let succeeded = 0;
+  const remaining = [];
+  for (const r of failedCheckins) {
+    try {
+      await gasRequest({ method: 'POST', body: r });
+      succeeded++;
+    } catch { remaining.push(r); }
+  }
+  failedCheckins = remaining;
+  localStorage.setItem('failed_checkins', JSON.stringify(failedCheckins));
+  updateRetryBanner();
+  if (succeeded > 0) toast(`✅ Synced ${succeeded} check-in(s)`, 'success');
+  if (remaining.length > 0) toast(`${remaining.length} still failed — check connection`, 'error');
+}
+
+// ═══════════════════════════════════════════════════════════
+// LOG PANEL
+// ═══════════════════════════════════════════════════════════
+async function loadLogs() {
+  const list = document.getElementById('log-list');
+  list.innerHTML = '<div class="loading-row"><div class="spinner dark"></div> Loading check-ins…</div>';
+  document.getElementById('log-count').textContent = 'Loading…';
+
+  if (!GAS_URL) {
+    list.innerHTML = '<div class="log-empty"><div class="empty-icon">⚙️</div><p>Set up your GAS URL in Settings first.</p></div>';
+    return;
+  }
+
+  try {
+    const data = await gasRequest({ method: 'GET', query: { action: 'getLogs' } });
+    allLogs = (data.logs || []).sort((a, b) => b.timestamp - a.timestamp);
+    populateRoomFilter();
+    applyFilters();
+  } catch (e) {
+    list.innerHTML = '<div class="log-empty"><div class="empty-icon">❌</div><p>Could not load logs. Check connection.</p></div>';
+  }
+}
+
+function populateRoomFilter() {
+  const sel = document.getElementById('log-filter-room');
+  const current = sel.value;
+  sel.innerHTML = '<option value="">All Rooms</option>';
+  const rooms = [...new Set(allLogs.map(l => l.room))].sort();
+  rooms.forEach(r => {
+    const o = document.createElement('option');
+    o.value = r; o.textContent = r;
+    sel.appendChild(o);
+  });
+  sel.value = current;
+}
+
+function applyFilters() {
+  const room = document.getElementById('log-filter-room').value;
+  const date = document.getElementById('log-filter-date').value;
+
+  filteredLogs = allLogs.filter(l => {
+    if (room && l.room !== room) return false;
+    if (date && l.date !== date) return false;
+    return true;
+  });
+
+  renderLogs();
+}
+
+function renderLogs() {
+  const list = document.getElementById('log-list');
+  document.getElementById('log-count').textContent = `Showing ${filteredLogs.length} of ${allLogs.length} check-ins`;
+
+  if (!filteredLogs.length) {
+    list.innerHTML = '<div class="log-empty"><div class="empty-icon">🔍</div><p>No check-ins match your filter.</p></div>';
+    return;
+  }
+
+  list.innerHTML = filteredLogs.map(l => `
+    <div class="log-card">
+      <div class="log-icon">🧹</div>
+      <div class="log-info">
+        <div class="log-room">${escHtml(l.room)}</div>
+        <div class="log-cleaner">by ${escHtml(l.cleaner_name)}</div>
+      </div>
+      <div class="log-time">
+        <div class="time">${escHtml(l.time)}</div>
+        <div class="date">${escHtml(l.date)}</div>
+      </div>
+    </div>
+  `).join('');
+}
+
+function escHtml(s) {
+  return String(s || '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+}
+
+function exportCSV() {
+  if (!filteredLogs.length) { toast('No data to export', 'error'); return; }
+  const headers = ['Date', 'Time', 'Room', 'Cleaner', 'Timestamp'];
+  const rows = filteredLogs.map(l => [l.date, l.time, `"${l.room}"`, `"${l.cleaner_name}"`, l.timestamp]);
+  const csv = [headers.join(','), ...rows.map(r => r.join(','))].join('\n');
+  const blob = new Blob([csv], { type: 'text/csv' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url; a.download = `cleantrack-export-${todayStr()}.csv`;
+  a.click(); URL.revokeObjectURL(url);
+}
+
+// ═══════════════════════════════════════════════════════════
+// SETUP: PIN
+// ═══════════════════════════════════════════════════════════
+function pinPress(digit) {
+  if (pinBuffer.length >= 4) return;
+  pinBuffer += digit;
+  updatePinDots();
+  if (pinBuffer.length === 4) {
+    setTimeout(checkPin, 80);
+  }
+}
+
+function pinDel() {
+  pinBuffer = pinBuffer.slice(0, -1);
+  updatePinDots();
+}
+
+function updatePinDots() {
+  for (let i = 0; i < 4; i++) {
+    document.getElementById('dot-' + i).classList.toggle('filled', i < pinBuffer.length);
+  }
+}
+
+async function checkPin() {
+  if (!GAS_URL) {
+    // Offline fallback — use cached pin or default
+  }
+  await loadSettings();
+  if (pinBuffer === settings.pin) {
+    setupUnlocked = true;
+    document.getElementById('pin-gate').style.display = 'none';
+    document.getElementById('setup-content').style.display = 'block';
+    renderRooms();
+    renderCleaners();
+    document.getElementById('gas-url-input').value = GAS_URL;
+    pinBuffer = '';
+    updatePinDots();
+  } else {
+    document.getElementById('pin-error').textContent = 'Incorrect PIN';
+    document.getElementById('pin-dots').classList.add('shake');
+    setTimeout(() => {
+      document.getElementById('pin-dots').classList.remove('shake');
+      document.getElementById('pin-error').textContent = '';
+    }, 500);
+    pinBuffer = '';
+    updatePinDots();
+  }
+}
+
+function lockSetup() {
+  setupUnlocked = false;
+  document.getElementById('pin-gate').style.display = 'flex';
+  document.getElementById('setup-content').style.display = 'none';
+  pinBuffer = '';
+  updatePinDots();
+}
+
+// ═══════════════════════════════════════════════════════════
+// SETUP: GAS URL
+// ═══════════════════════════════════════════════════════════
+async function saveGasUrl() {
+  const url = document.getElementById('gas-url-input').value.trim();
+  if (!url) { toast('Please paste your GAS URL', 'error'); return; }
+  GAS_URL = url;
+  localStorage.setItem('gas_url', url);
+  document.getElementById('gas-status-text').textContent = 'Testing…';
+  document.getElementById('gas-dot').className = 'status-dot';
+
+  try {
+    const data = await gasRequest({ method: 'GET', query: { action: 'getSettings' } });
+    if (data.rooms !== undefined) {
+      document.getElementById('gas-dot').className = 'status-dot ok';
+      document.getElementById('gas-status-text').textContent = 'Connected ✓';
+      settings = data;
+      renderRooms();
+      renderCleaners();
+      toast('Connected to Google Sheets!', 'success');
+    } else {
+      throw new Error('Unexpected response');
+    }
+  } catch (e) {
+    document.getElementById('gas-dot').className = 'status-dot err';
+    document.getElementById('gas-status-text').textContent = 'Connection failed';
+    toast('Could not connect. Check the URL and try again.', 'error');
+  }
+}
+
+// ═══════════════════════════════════════════════════════════
+// SETUP: ROOMS
+// ═══════════════════════════════════════════════════════════
+function renderRooms() {
+  const el = document.getElementById('rooms-list');
+  if (!settings.rooms.length) {
+    el.innerHTML = '<p style="color:var(--text-muted);font-size:13px;padding:8px 0">No rooms yet.</p>';
+    return;
+  }
+  el.innerHTML = settings.rooms.map((r, i) => `
+    <div class="list-item">
+      <div class="list-item-name">${escHtml(r)}</div>
+      <div class="list-item-actions">
+        <div class="room-qr-preview">
+          <div class="qr-thumb" id="qr-thumb-${i}"></div>
+        </div>
+        <button class="btn btn-sm btn-secondary" onclick="printQR('${escHtml(r).replace(/'/g,"\\'")}')">🖨 Print</button>
+        <button class="btn-icon" onclick="removeRoom(${i})" title="Remove">×</button>
+      </div>
+    </div>
+  `).join('');
+
+  settings.rooms.forEach((r, i) => {
+    const container = document.getElementById('qr-thumb-' + i);
+    if (!container) return;
+    container.innerHTML = '';
+    try {
+      new QRCode(container, {
+        text: JSON.stringify({ system: 'janitorial', room: r }),
+        width: 52, height: 52,
+        colorDark: '#000000', colorLight: '#ffffff',
+        correctLevel: QRCode.CorrectLevel.M
+      });
+    } catch(e) {}
+  });
+}
+
+async function addRoom() {
+  const input = document.getElementById('new-room-input');
+  const name = input.value.trim();
+  if (!name) { toast('Enter a room name', 'error'); return; }
+  if (settings.rooms.includes(name)) { toast('Room already exists', 'error'); return; }
+  settings.rooms.push(name);
+  await saveSettings();
+  input.value = '';
+  renderRooms();
+  toast(`Room "${name}" added`, 'success');
+}
+
+async function removeRoom(i) {
+  const name = settings.rooms[i];
+  settings.rooms.splice(i, 1);
+  await saveSettings();
+  renderRooms();
+  toast(`Room removed`, 'success');
+}
+
+// ═══════════════════════════════════════════════════════════
+// SETUP: CLEANERS
+// ═══════════════════════════════════════════════════════════
+function renderCleaners() {
+  const el = document.getElementById('cleaners-list');
+  if (!settings.cleaners.length) {
+    el.innerHTML = '<p style="color:var(--text-muted);font-size:13px;padding:8px 0">No cleaners yet.</p>';
+    return;
+  }
+  el.innerHTML = settings.cleaners.map((c, i) => `
+    <div class="list-item">
+      <div class="list-item-name">👤 ${escHtml(c)}</div>
+      <button class="btn-icon" onclick="removeCleaner(${i})">×</button>
+    </div>
+  `).join('');
+}
+
+async function addCleaner() {
+  const input = document.getElementById('new-cleaner-input');
+  const name = input.value.trim();
+  if (!name) { toast('Enter a cleaner name', 'error'); return; }
+  if (settings.cleaners.includes(name)) { toast('Cleaner already exists', 'error'); return; }
+  settings.cleaners.push(name);
+  await saveSettings();
+  input.value = '';
+  renderCleaners();
+  toast(`Cleaner "${name}" added`, 'success');
+}
+
+async function removeCleaner(i) {
+  settings.cleaners.splice(i, 1);
+  await saveSettings();
+  renderCleaners();
+  toast('Cleaner removed', 'success');
+}
+
+// ═══════════════════════════════════════════════════════════
+// SETUP: SAVE SETTINGS
+// ═══════════════════════════════════════════════════════════
+async function saveSettings() {
+  if (!GAS_URL) { toast('Set your GAS URL first', 'error'); return; }
+  try {
+    await gasRequest({
+      method: 'POST',
+      body: { action: 'saveSettings', rooms: settings.rooms, cleaners: settings.cleaners, pin: settings.pin }
+    });
+  } catch (e) {
+    toast('Failed to save to Sheets — check connection', 'error');
+  }
+}
+
+async function changePin() {
+  const np = document.getElementById('new-pin').value.trim();
+  const cp = document.getElementById('confirm-pin').value.trim();
+  if (!/^\d{4}$/.test(np)) { toast('PIN must be exactly 4 digits', 'error'); return; }
+  if (np !== cp) { toast('PINs do not match', 'error'); return; }
+  settings.pin = np;
+  await saveSettings();
+  document.getElementById('new-pin').value = '';
+  document.getElementById('confirm-pin').value = '';
+  toast('PIN updated!', 'success');
+}
+
+// ═══════════════════════════════════════════════════════════
+// QR PRINT
+// ═══════════════════════════════════════════════════════════
+function printQR(roomName) {
+  const container = document.getElementById('print-qr-canvas');
+  container.innerHTML = '';
+  document.getElementById('print-room-name').textContent = roomName;
+
+  new QRCode(container, {
+    text: JSON.stringify({ system: 'janitorial', room: roomName }),
+    width: 250, height: 250,
+    colorDark: '#000000', colorLight: '#ffffff',
+    correctLevel: QRCode.CorrectLevel.H
+  });
+
+  document.getElementById('print-area').style.display = 'block';
+  setTimeout(() => {
+    window.print();
+    document.getElementById('print-area').style.display = 'none';
+  }, 300);
+}
+
+// ═══════════════════════════════════════════════════════════
+// INIT
+// ═══════════════════════════════════════════════════════════
+(async function init() {
+  updateRetryBanner();
+  if (GAS_URL) {
+    try { await loadSettings(); } catch(e) {}
+  }
+})();
+</script>
+</body>
+</html>
